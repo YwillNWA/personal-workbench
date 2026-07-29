@@ -72,7 +72,9 @@
       display:flex; gap:10px; align-items:flex-start;
       background:linear-gradient(135deg,rgba(236,232,246,.8),rgba(245,240,239,.9));
       color:var(--muted); font-size:10px; line-height:1.6;
+      width:100%; border:0; text-align:left;
     }
+    .privacy:hover { transform:translateY(-1px); box-shadow:0 10px 24px rgba(84,72,105,.08); }
     .privacy strong { display:block; color:#625f6b; font-size:11px; }
     .content { min-height:100vh; margin-left:240px; padding:52px clamp(28px,5.5vw,84px) 80px; }
     .content-inner { max-width:1100px; margin:auto; }
@@ -183,6 +185,17 @@
     .modal-card h2 { margin:12px 0 8px; }
     .modal-card p { color:var(--muted); font-size:13px; line-height:1.7; }
     .modal-actions { display:flex; justify-content:center; gap:10px; margin-top:20px; }
+    .sync-form { display:grid; gap:12px; margin-top:20px; text-align:left; }
+    .sync-input {
+      width:100%; padding:13px 14px; border:1px solid #e8e4eb; border-radius:13px;
+      background:#f8f6f8; font-size:13px;
+    }
+    .sync-form .primary-btn { width:100%; }
+    .sync-note { min-height:20px; margin:2px 0 0 !important; font-size:11px !important; }
+    .sync-user { margin:18px 0 0; padding:14px; border-radius:15px; background:#f4f0f7; }
+    .sync-user strong { display:block; margin-top:3px; overflow-wrap:anywhere; }
+    .sync-close { position:absolute; right:17px; top:14px; }
+    .sync-card-modal { position:relative; }
     @media (max-width:900px) {
       .sidebar { width:205px; }
       .content { margin-left:205px; padding-left:26px; padding-right:26px; }
@@ -220,7 +233,7 @@
         <button data-view="exercise"><span class="nav-icon">🏃</span><span>锻炼身体</span></button>
         <button data-view="ideas"><span class="nav-icon">💡</span><span>灵感记录</span><span class="badge" id="ideaBadge" hidden>0</span></button>
       </nav>
-      <div class="privacy">☁️<div><strong>数据仅存在本机</strong>不同设备和浏览器之间不会自动同步。</div></div>
+      <button class="privacy" id="syncOpen" type="button">☁️<div><strong id="syncSidebarTitle">开启云同步</strong><span id="syncSidebarText">无需密码，同一邮箱即可跨设备使用。</span></div></button>
     </aside>
 
     <main class="content">
@@ -301,6 +314,27 @@
   </div>
 
   <div class="toast" id="toast" hidden></div>
+  <div class="modal" id="syncModal">
+    <div class="modal-card sync-card-modal" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
+      <button class="delete sync-close" id="syncClose" type="button" aria-label="关闭">×</button>
+      <div class="bulb">☁️</div><p class="kicker">安全云同步</p>
+      <h2 id="syncTitle">电脑和手机保持一致</h2>
+      <p>输入同一个邮箱，收到验证码后即可登录。无需设置密码，本机记录也会继续保留。</p>
+      <form class="sync-form" id="syncLoginForm">
+        <input class="sync-input" id="syncEmail" type="email" autocomplete="email" placeholder="你的邮箱地址" aria-label="邮箱地址" required>
+        <button class="primary-btn" id="syncSendCode" type="button">发送验证码</button>
+        <div id="syncOtpArea" hidden>
+          <input class="sync-input" id="syncOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="输入邮件中的验证码" aria-label="邮箱验证码" required>
+          <button class="primary-btn" id="syncVerify" type="submit" style="margin-top:12px">登录并同步</button>
+        </div>
+        <p class="sync-note" id="syncMessage" aria-live="polite"></p>
+      </form>
+      <div id="syncSignedIn" hidden>
+        <div class="sync-user"><small>当前同步账号</small><strong id="syncUserEmail"></strong></div>
+        <div class="modal-actions"><button class="ghost" id="syncLogout" type="button">退出同步</button><button class="primary-btn" id="syncNow" type="button">立即同步</button></div>
+      </div>
+    </div>
+  </div>
   <div class="modal" id="reminderModal">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="reminderTitle">
       <div class="bulb">💡</div><p class="kicker">晚间小提醒</p>
@@ -322,14 +356,22 @@
       const fullDate = (date = new Date()) => new Intl.DateTimeFormat("zh-CN",{year:"numeric",month:"long",day:"numeric",weekday:"long"}).format(date);
       const shortDate = (value) => new Intl.DateTimeFormat("zh-CN",{month:"long",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date(value));
       const read = (key,fallback) => { try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } };
-      const write = (key,value) => localStorage.setItem(key,JSON.stringify(value));
+      const write = (key,value) => {
+        localStorage.setItem(key,JSON.stringify(value));
+        localStorage.setItem("desk.updatedAt",new Date().toISOString());
+        window.dispatchEvent(new CustomEvent("workbench:data-changed"));
+      };
       const escape = (value) => String(value).replace(/[&<>"']/g,(ch)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
       const defaults = () => ["运动","阅读","英语学习","晚十点睡觉"].map((name,i)=>({id:`default-${i}-${uid()}`,name,done:false,fixed:true}));
       const today = todayKey();
       let tasksByDate = read("desk.tasks",{});
       let workouts = read("desk.workouts",[]);
       let ideas = read("desk.ideas",[]);
-      if (!tasksByDate[today]) tasksByDate[today] = defaults();
+      if (!tasksByDate[today]) {
+        tasksByDate[today] = defaults();
+        localStorage.setItem("desk.tasks",JSON.stringify(tasksByDate));
+        if (!localStorage.getItem("desk.updatedAt")) localStorage.setItem("desk.updatedAt",new Date().toISOString());
+      }
 
       const toast = (message) => {
         const el = $("#toast"); el.textContent = message; el.hidden = false;
@@ -426,9 +468,30 @@
       $("#reminderLater").addEventListener("click",()=>$("#reminderModal").classList.remove("show"));
       $("#reminderWrite").addEventListener("click",()=>{ $("#reminderModal").classList.remove("show"); showView("ideas"); $("#ideaInput").focus(); });
 
-      write("desk.tasks",tasksByDate);
+      window.workbench = {
+        exportData: () => ({
+          schemaVersion: 1,
+          tasks: tasksByDate,
+          workouts,
+          ideas,
+          updatedAt: localStorage.getItem("desk.updatedAt") || new Date().toISOString()
+        }),
+        importData: (data) => {
+          tasksByDate = data && typeof data.tasks === "object" && data.tasks ? data.tasks : {};
+          workouts = Array.isArray(data?.workouts) ? data.workouts : [];
+          ideas = Array.isArray(data?.ideas) ? data.ideas : [];
+          if (!tasksByDate[today]) tasksByDate[today] = defaults();
+          localStorage.setItem("desk.tasks",JSON.stringify(tasksByDate));
+          localStorage.setItem("desk.workouts",JSON.stringify(workouts));
+          localStorage.setItem("desk.ideas",JSON.stringify(ideas));
+          localStorage.setItem("desk.updatedAt",data?.updatedAt || new Date().toISOString());
+          renderTasks(); renderWorkouts(); renderIdeas();
+        },
+        toast
+      };
       renderTasks(); renderWorkouts(); renderIdeas(); checkReminder(); setInterval(checkReminder,60000);
     })();
   </script>
+  <script src="sync.js"></script>
 </body>
 </html>
