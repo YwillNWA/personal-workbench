@@ -14,6 +14,7 @@ const $ = (selector) => document.querySelector(selector);
 const ui = {
   modal: $("#syncModal"),
   open: $("#syncOpen"),
+  mobileOpen: $("#mobileSyncOpen"),
   close: $("#syncClose"),
   form: $("#syncLoginForm"),
   email: $("#syncEmail"),
@@ -167,10 +168,12 @@ const startSession = async () => {
   }
 };
 
-ui.open.addEventListener("click", () => {
+const openSyncModal = () => {
   ui.modal.classList.add("show");
   if (!currentUser) ui.email.focus();
-});
+};
+ui.open.addEventListener("click", openSyncModal);
+ui.mobileOpen.addEventListener("click", openSyncModal);
 ui.close.addEventListener("click", () => ui.modal.classList.remove("show"));
 ui.modal.addEventListener("click", (event) => {
   if (event.target === ui.modal) ui.modal.classList.remove("show");

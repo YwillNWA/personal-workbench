@@ -171,6 +171,11 @@
     .idea p { margin:7px 0 0; font-family:"Songti SC",serif; font-size:13px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; }
     .idea .delete { position:absolute; right:7px; top:7px; }
     .mobile-nav { display:none; }
+    .mobile-sync {
+      display:none; position:fixed; z-index:55; top:15px; right:15px;
+      width:43px; height:43px; border:1px solid rgba(255,255,255,.9); border-radius:15px;
+      background:rgba(255,253,252,.94); box-shadow:0 10px 28px rgba(61,51,76,.13); font-size:19px;
+    }
     .toast {
       position:fixed; z-index:70; left:50%; bottom:28px; transform:translateX(-50%);
       padding:11px 18px; border-radius:999px; background:rgba(58,55,67,.92); color:white; font-size:12px;
@@ -217,6 +222,7 @@
       .mobile-nav button { border:0; border-radius:14px; padding:8px 4px; background:transparent; color:var(--muted); font-size:10px; }
       .mobile-nav button span { display:block; font-size:19px; }
       .mobile-nav button.active { background:var(--purple-soft); color:var(--purple); font-weight:800; }
+      .mobile-sync { display:grid; place-items:center; }
       .toast { bottom:90px; white-space:nowrap; }
     }
   </style>
@@ -311,6 +317,7 @@
       <button data-view="exercise"><span>🏃</span>锻炼</button>
       <button data-view="ideas"><span>💡</span>灵感</button>
     </nav>
+    <button class="mobile-sync" id="mobileSyncOpen" type="button" aria-label="打开云同步">☁️</button>
   </div>
 
   <div class="toast" id="toast" hidden></div>
