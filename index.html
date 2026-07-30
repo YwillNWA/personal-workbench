@@ -105,6 +105,7 @@
     h1 { margin:0; font-size:clamp(32px,4vw,46px); line-height:1.15; letter-spacing:-.04em; }
     .subtitle { margin:10px 0 0; color:var(--muted); font-size:13px; line-height:1.7; }
     .date-pill { flex:0 0 auto; padding:10px 14px; border-radius:999px; background:rgba(255,255,255,.66); color:#77727e; font-size:11px; }
+    .plan-date-row { display:flex; justify-content:flex-end; margin-bottom:20px; }
     .card {
       padding:clamp(22px,3.5vw,34px); border:1px solid rgba(255,255,255,.92);
       border-radius:26px; background:var(--paper); box-shadow:var(--shadow);
@@ -138,11 +139,31 @@
     .task {
       min-height:60px; padding:10px 12px 10px 15px; border-radius:16px;
       display:flex; align-items:center; gap:8px; background:rgba(250,248,249,.92);
-      border:1px solid rgba(78,70,91,.06);
+      border:1px solid rgba(78,70,91,.06); transition:box-shadow .18s ease,transform .18s ease,background .18s ease;
     }
-    .task label { display:flex; align-items:center; gap:12px; flex:1; cursor:pointer; font-size:14px; font-weight:700; }
+    .task:hover { background:#fff; }
+    .task label { display:flex; align-items:center; flex:0 0 auto; cursor:pointer; }
     .task input { width:20px; height:20px; accent-color:var(--purple); }
-    .task.done .task-name { color:#aaa6af; text-decoration:line-through; }
+    .task-name-input {
+      min-width:0; flex:1; padding:8px 9px; border:1px solid transparent; border-radius:10px;
+      background:transparent; font-size:14px; font-weight:700;
+    }
+    .task-name-input:hover { background:#f7f4f7; }
+    .task-name-input:focus { background:#fff; border-color:#dcd5ea; outline:0; }
+    .task.done .task-name-input { color:#aaa6af; text-decoration:line-through; }
+    .drag-handle {
+      width:34px; height:34px; flex:0 0 auto; display:grid; place-items:center;
+      border:0; border-radius:9px; background:transparent; color:#aaa5b2;
+      font-size:21px; line-height:1; cursor:grab; touch-action:none;
+    }
+    .drag-handle:hover,.drag-handle:focus-visible { background:var(--purple-soft); color:var(--purple); }
+    .drag-handle:active { cursor:grabbing; }
+    .task.dragging {
+      z-index:2; background:#fff; box-shadow:0 16px 38px rgba(65,54,84,.18);
+      transform:scale(1.012);
+    }
+    body.task-reordering { cursor:grabbing; user-select:none; }
+    body.task-reordering .task-list { touch-action:none; }
     .tag { padding:5px 9px; border-radius:999px; background:var(--purple-soft); color:var(--purple); font-size:10px; }
     .delete { width:32px; height:32px; border:0; border-radius:9px; background:transparent; color:#b3afb7; font-size:20px; }
     .delete:hover { background:#f8e9e8; color:#c77e7c; }
@@ -244,6 +265,7 @@
       .sidebar { display:none; }
       .content { margin-left:0; padding:28px 17px 100px; }
       .header { flex-direction:column-reverse; align-items:flex-start; gap:18px; }
+      .plan-date-row { justify-content:flex-start; }
       h1 { font-size:31px; }
       .stats,.quick-grid,.form-grid { grid-template-columns:1fr; }
       .add-row { flex-direction:column; }
@@ -280,16 +302,9 @@
     <main class="content">
       <div class="content-inner">
         <section class="page active" id="plan">
-          <header class="header">
-            <div><p class="eyebrow">DAILY PLAN</p><h1>今天，也好好生活 ☀️</h1><p class="subtitle">把要做的事轻轻放在这里，然后一件件完成。</p></div>
-            <div class="date-pill current-date"></div>
-          </header>
-          <div class="stats">
-            <article class="stat primary"><div class="stat-icon">🌤️</div><div><p>今日进度</p><div class="stat-number" id="planPercent">0%</div><strong id="planProgress">已完成 0/4 项</strong></div></article>
-            <article class="stat"><div class="stat-icon">🌱</div><div><p>给自己一点耐心</p><strong id="planEncourage">还有 4 件小事</strong></div></article>
-          </div>
+          <div class="plan-date-row"><div class="date-pill current-date"></div></div>
           <section class="card">
-            <div class="section-head"><div><p class="kicker">今日清单</p><h2>一步一步来</h2></div><button class="ghost" id="resetTasks">↻ 重置今日</button></div>
+            <div class="section-head"><div><p class="kicker">今日清单</p><h2>一步一步来</h2><p class="subtitle">点击名称修改，按住右侧拖动柄调整顺序。</p></div><button class="ghost" id="resetTasks">↻ 重置今日</button></div>
             <form class="add-row" id="taskForm"><input id="taskInput" maxlength="80" placeholder="写下今天想完成的一件事…" aria-label="新任务名称"><button class="primary-btn">＋ 添加任务</button></form>
             <div class="task-list" id="taskList"></div>
           </section>
@@ -452,19 +467,86 @@
         const tasks = tasksByDate[today] || [];
         const done = tasks.filter(t=>t.done).length;
         $("#planBadge").textContent=`${done}/${tasks.length}`;
-        $("#planPercent").textContent=tasks.length ? `${Math.round(done/tasks.length*100)}%` : "0%";
-        $("#planProgress").textContent=`已完成 ${done}/${tasks.length} 项`;
-        $("#planEncourage").textContent=tasks.length && done===tasks.length ? "今日目标全部达成" : `还有 ${tasks.length-done} 件小事`;
         $("#taskList").innerHTML = tasks.map(task=>`
-          <div class="task ${task.done?"done":""}">
-            <label><input type="checkbox" data-task-check="${task.id}" ${task.done?"checked":""}><span class="task-name">${escape(task.name)}</span></label>
+          <div class="task ${task.done?"done":""}" data-task-id="${task.id}">
+            <label aria-label="完成任务"><input type="checkbox" data-task-check="${task.id}" ${task.done?"checked":""}></label>
+            <input class="task-name-input" data-task-name="${task.id}" maxlength="80" value="${escape(task.name)}" aria-label="任务名称">
             ${task.fixed?'<span class="tag">每日</span>':""}
+            <button class="drag-handle" data-task-drag="${task.id}" type="button" aria-label="拖动调整顺序" title="按住拖动排序">⠿</button>
             <button class="delete" data-task-delete="${task.id}" aria-label="删除任务">×</button>
           </div>`).join("") || '<div class="empty"><span>📋</span><p>今天的清单还是空的。</p></div>';
         $$("[data-task-check]").forEach(input=>input.addEventListener("change",()=>{
           const task=tasks.find(t=>t.id===input.dataset.taskCheck); if(task) task.done=input.checked;
           write("desk.tasks",tasksByDate); renderTasks();
         }));
+        $$("[data-task-name]").forEach(input=>{
+          const saveName=()=>{
+            const task=tasks.find(t=>t.id===input.dataset.taskName);
+            if(!task)return;
+            const name=input.value.trim();
+            if(!name){ input.value=task.name; return; }
+            if(name!==task.name){ task.name=name; write("desk.tasks",tasksByDate); toast("任务名称已修改"); }
+          };
+          input.addEventListener("change",saveName);
+          input.addEventListener("keydown",(event)=>{
+            if(event.key==="Enter"){ event.preventDefault(); input.blur(); }
+            if(event.key==="Escape"){
+              const task=tasks.find(t=>t.id===input.dataset.taskName);
+              if(task)input.value=task.name;
+              input.blur();
+            }
+          });
+        });
+        $$("[data-task-drag]").forEach(handle=>{
+          handle.addEventListener("pointerdown",(event)=>{
+            if(event.button!==0)return;
+            event.preventDefault();
+            const row=handle.closest(".task"), list=$("#taskList");
+            if(!row||!list)return;
+            row.classList.add("dragging");
+            document.body.classList.add("task-reordering");
+            handle.setPointerCapture(event.pointerId);
+            const move=(moveEvent)=>{
+              moveEvent.preventDefault();
+              const siblings=[...list.querySelectorAll(".task:not(.dragging)")];
+              const before=siblings.find(item=>{
+                const box=item.getBoundingClientRect();
+                return moveEvent.clientY < box.top + box.height/2;
+              });
+              if(before)list.insertBefore(row,before); else list.appendChild(row);
+              if(moveEvent.clientY<90)window.scrollBy(0,-12);
+              if(moveEvent.clientY>window.innerHeight-110)window.scrollBy(0,12);
+            };
+            const finish=()=>{
+              handle.removeEventListener("pointermove",move);
+              handle.removeEventListener("pointerup",finish);
+              handle.removeEventListener("pointercancel",finish);
+              row.classList.remove("dragging");
+              document.body.classList.remove("task-reordering");
+              const byId=new Map(tasks.map(task=>[task.id,task]));
+              tasksByDate[today]=[...list.querySelectorAll(".task")]
+                .map(item=>byId.get(item.dataset.taskId)).filter(Boolean);
+              write("desk.tasks",tasksByDate);
+              renderTasks();
+            };
+            handle.addEventListener("pointermove",move);
+            handle.addEventListener("pointerup",finish);
+            handle.addEventListener("pointercancel",finish);
+          });
+          handle.addEventListener("keydown",(event)=>{
+            if(event.key!=="ArrowUp"&&event.key!=="ArrowDown")return;
+            event.preventDefault();
+            const index=tasks.findIndex(task=>task.id===handle.dataset.taskDrag);
+            const next=index+(event.key==="ArrowUp"?-1:1);
+            if(index<0||next<0||next>=tasks.length)return;
+            [tasks[index],tasks[next]]=[tasks[next],tasks[index]];
+            tasksByDate[today]=tasks;
+            write("desk.tasks",tasksByDate);
+            renderTasks();
+            const moved=$(`[data-task-drag="${handle.dataset.taskDrag}"]`);
+            if(moved)moved.focus();
+          });
+        });
         $$("[data-task-delete]").forEach(btn=>btn.addEventListener("click",()=>{
           tasksByDate[today]=tasks.filter(t=>t.id!==btn.dataset.taskDelete); write("desk.tasks",tasksByDate); renderTasks();
         }));

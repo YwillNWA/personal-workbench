@@ -1,4 +1,4 @@
-const CACHE_NAME = "personal-workbench-pwa-v1";
+const CACHE_NAME = "personal-workbench-pwa-v2";
 const INDEX_URL = new URL("./index.html", self.location).href;
 const APP_SHELL = [
   "./",
