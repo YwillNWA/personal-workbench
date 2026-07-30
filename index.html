@@ -4,6 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="一个轻盈、私密的个人工作台，用于每日计划、锻炼与灵感记录。">
+  <meta name="theme-color" content="#8f87bd">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="我的工作台">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="我的工作台">
+  <meta property="og:description" content="计划、锻炼、灵感，随时同步。">
+  <meta property="og:image" content="https://ywillnwa.github.io/personal-workbench/og.png">
+  <meta property="og:url" content="https://ywillnwa.github.io/personal-workbench/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="我的工作台">
+  <meta name="twitter:description" content="计划、锻炼、灵感，随时同步。">
+  <meta name="twitter:image" content="https://ywillnwa.github.io/personal-workbench/og.png">
+  <link rel="manifest" href="manifest.webmanifest?v=1">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="favicon-64.png">
   <title>我的工作台｜计划、锻炼与灵感</title>
   <style>
     :root {
@@ -18,6 +35,7 @@
       --shadow: 0 18px 55px rgba(65,54,84,.08);
     }
     * { box-sizing: border-box; }
+    [hidden] { display:none !important; }
     html { min-width: 320px; background: #f8f5f3; color: var(--ink); }
     body {
       margin: 0;
@@ -176,6 +194,22 @@
       width:43px; height:43px; border:1px solid rgba(255,255,255,.9); border-radius:15px;
       background:rgba(255,253,252,.94); box-shadow:0 10px 28px rgba(61,51,76,.13); font-size:19px;
     }
+    .install-banner {
+      position:fixed; z-index:65; left:50%; bottom:22px; transform:translateX(-50%);
+      width:min(470px,calc(100% - 28px)); padding:12px; border:1px solid rgba(255,255,255,.95);
+      border-radius:20px; display:flex; align-items:center; gap:11px;
+      background:rgba(255,253,252,.96); box-shadow:0 18px 55px rgba(57,47,73,.18);
+      backdrop-filter:blur(16px);
+    }
+    .install-banner img { width:48px; height:48px; border-radius:14px; }
+    .install-copy { flex:1; min-width:0; }
+    .install-copy strong { display:block; font-size:13px; }
+    .install-copy small { display:block; margin-top:4px; color:var(--muted); font-size:10px; line-height:1.45; }
+    .install-banner .primary-btn { flex:0 0 auto; padding:10px 14px; }
+    .install-dismiss { width:28px; height:28px; border:0; background:transparent; color:#aaa5af; font-size:18px; }
+    .install-steps { margin:20px 0 0; padding:16px; border-radius:16px; background:#f6f3f7; text-align:left; }
+    .install-steps ol { margin:0; padding-left:20px; color:#66616e; font-size:12px; line-height:1.9; }
+    .install-steps strong { color:var(--purple); }
     .toast {
       position:fixed; z-index:70; left:50%; bottom:28px; transform:translateX(-50%);
       padding:11px 18px; border-radius:999px; background:rgba(58,55,67,.92); color:white; font-size:12px;
@@ -215,14 +249,15 @@
       .add-row { flex-direction:column; }
       .add-row input { min-height:42px; }
       .mobile-nav {
-        position:fixed; z-index:50; left:13px; right:13px; bottom:13px;
+        position:fixed; z-index:50; left:13px; right:13px; bottom:calc(13px + env(safe-area-inset-bottom));
         display:grid; grid-template-columns:repeat(3,1fr); padding:7px; border-radius:21px;
         background:rgba(255,253,252,.94); box-shadow:0 16px 45px rgba(61,51,76,.16);
       }
       .mobile-nav button { border:0; border-radius:14px; padding:8px 4px; background:transparent; color:var(--muted); font-size:10px; }
       .mobile-nav button span { display:block; font-size:19px; }
       .mobile-nav button.active { background:var(--purple-soft); color:var(--purple); font-weight:800; }
-      .mobile-sync { display:grid; place-items:center; }
+      .mobile-sync { display:grid; place-items:center; top:calc(15px + env(safe-area-inset-top)); }
+      .install-banner { bottom:calc(87px + env(safe-area-inset-bottom)); }
       .toast { bottom:90px; white-space:nowrap; }
     }
   </style>
@@ -321,6 +356,27 @@
   </div>
 
   <div class="toast" id="toast" hidden></div>
+  <div class="install-banner" id="installBanner" hidden>
+    <img src="app-icon-192.png" alt="">
+    <div class="install-copy"><strong>添加到手机桌面</strong><small>像普通 App 一样全屏打开，离线也能记录。</small></div>
+    <button class="primary-btn" id="installApp" type="button">安装</button>
+    <button class="install-dismiss" id="installDismiss" type="button" aria-label="暂不安装">×</button>
+  </div>
+  <div class="modal" id="installHelpModal">
+    <div class="modal-card sync-card-modal" role="dialog" aria-modal="true" aria-labelledby="installHelpTitle">
+      <button class="delete sync-close" id="installHelpClose" type="button" aria-label="关闭">×</button>
+      <img src="app-icon-192.png" alt="" width="76" height="76" style="border-radius:22px">
+      <p class="kicker" style="margin-top:14px">安装工作台</p>
+      <h2 id="installHelpTitle">放到手机桌面</h2>
+      <div class="install-steps" id="iosInstallSteps" hidden>
+        <ol><li>请用 <strong>Safari</strong> 打开当前网址</li><li>点击底部的<strong>分享</strong>按钮</li><li>选择<strong>添加到主屏幕</strong></li><li>开启<strong>作为网页 App 打开</strong>，再点添加</li></ol>
+      </div>
+      <div class="install-steps" id="androidInstallSteps" hidden>
+        <ol><li>点击浏览器右上角的<strong>菜单</strong></li><li>选择<strong>安装应用</strong>或<strong>添加到主屏幕</strong></li><li>确认安装即可</li></ol>
+      </div>
+      <div class="modal-actions"><button class="primary-btn" id="installHelpDone" type="button">知道了</button></div>
+    </div>
+  </div>
   <div class="modal" id="syncModal">
     <div class="modal-card sync-card-modal" role="dialog" aria-modal="true" aria-labelledby="syncTitle">
       <button class="delete sync-close" id="syncClose" type="button" aria-label="关闭">×</button>
@@ -500,5 +556,6 @@
     })();
   </script>
   <script src="sync.js?v=3"></script>
+  <script src="pwa.js?v=1"></script>
 </body>
 </html>

@@ -1,0 +1,27 @@
+{
+  "id": "./",
+  "name": "我的工作台",
+  "short_name": "工作台",
+  "description": "计划、锻炼、灵感，随时同步。",
+  "lang": "zh-CN",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8f5f3",
+  "theme_color": "#8f87bd",
+  "categories": ["productivity", "lifestyle", "health"],
+  "icons": [
+    {
+      "src": "app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
